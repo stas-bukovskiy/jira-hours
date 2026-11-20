@@ -1,0 +1,7 @@
+# Secrets: real config with the Jira token. Commit config.example.php instead.
+config.php
+
+# macOS / IDE
+.DS_Store
+.idea/
+.vscode/
