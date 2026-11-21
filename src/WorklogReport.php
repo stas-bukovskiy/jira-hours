@@ -11,6 +11,59 @@ final class WorklogReport
     ) {
     }
 
+    private function currentUserKey(): string
+    {
+        $response = $this->client->get('/rest/api/2/myself');
+        $key = $response['key'] ?? '';
+        if ($key === '') {
+            throw new JiraException('got empty user key', 502);
+        }
+        return $key;
+    }
+
+    /** @param list<Issue> $issues
+     *  @return list<Worklog> */
+    public function findMyWorklogs(array $issues): array
+    {
+        if (empty($issues)) {
+            return [];
+        }
+
+        $currentUserKey = $this->currentUserKey();
+        $results = [];
+        foreach ($issues as $issue) {
+            $worklogs = $this->getWorklogs($issue);
+            $worklogs = array_values(array_filter($worklogs, fn($w) => ($w["author"]["key"] ?? '') === $currentUserKey));
+            $mapped = array_map(fn($worklog) => new Worklog(
+                $issue->key,
+                $worklog["started"],
+                (int) ($worklog["timeSpentSeconds"] ?? 0),
+                $worklog["comment"] ?? null,
+            ), $worklogs);
+            array_push($results, ...$mapped);
+        }
+        return $results;
+    }
+
+    private function getWorklogs(Issue $issue): array
+    {
+        $issueKey = \rawurlencode($issue->key);
+        $worklogs = [];
+        $startAt = 0;
+        do {
+            $response = $this->client->get("/rest/api/2/issue/{$issueKey}/worklog", ["startAt" => $startAt]);
+            $worklog = $response["worklogs"] ?? [];
+            if (count($worklog) === 0) {
+                break;
+            }
+
+            array_push($worklogs, ...$worklog);
+            $startAt += count($worklog);
+        } while ($startAt < ($response['total'] ?? 0));
+        return $worklogs;
+    }
+
+
 
     /** @return list<Issue> */
     public function findIssues(Week $week): array
