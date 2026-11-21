@@ -21,6 +21,16 @@ final class Week
         return $this->end->format("Y-m-d");
     }
 
+    /** @return array{string, string} */
+    public function searchRange(): array
+    {
+        return [
+            $this->start->modify("-1 days")->format("Y-m-d"),
+            $this->end->modify("+1 days")->format("Y-m-d"),
+        ];
+    }
+
+
 
     public static function fromInput(?string $start, \DateTimeZone $tz): self
     {

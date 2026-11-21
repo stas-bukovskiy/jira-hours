@@ -5,7 +5,7 @@ ini_set('display_errors', '0');
 
 require __DIR__ . "/../vendor/autoload.php";
 
-use JiraHours\JiraClient, JiraHours\JiraException, JiraHours\Week, JiraHours\InvalidInputException;
+use JiraHours\JiraClient, JiraHours\JiraException, JiraHours\Week, JiraHours\InvalidInputException, JiraHours\WorklogReport;
 
 function respond(int $status, array $body): never
 {
@@ -38,11 +38,16 @@ try {
 
     $client = new JiraClient($config['base_url'], $config['token'], $config['verify_tls']);
     $response = $client->get('/rest/api/2/myself');
+
+    $reporter = new WorklogReport($client);
+    $report = $reporter->findIssues($week);
+
     respond(200, [
         'name' => $response['name'],
         'displayName' => $response['displayName'],
         'weekStart' => $week->weekStart(),
-        'weekEnd' => $week->weekEnd()
+        'weekEnd' => $week->weekEnd(),
+        'report' => $report,
     ]);
 } catch (JiraException $e) {
     respond($e->getCode(), ['error' => $e->getMessage()]);

@@ -15,7 +15,7 @@ final class JiraClient
     }
 
 
-    public function get(string $path, ?array $query = null): array
+    public function get(string $path, array $query = []): array
     {
         $url = "{$this->baseUrl}{$path}";
         if ($query) {
