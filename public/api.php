@@ -27,6 +27,8 @@ try {
         throw new \RuntimeException('bad configuration');
     }
 
+    $baseUrl = rtrim($config['base_url'], '/');
+
     $start = $_GET['start'] ?? null;
     if ($start !== null && !is_string($start)) {
         throw new InvalidInputException('start query param isn\'t string');
@@ -36,19 +38,10 @@ try {
     $tz = new \DateTimeZone($config["timezone"]);
     $week = Week::fromInput($start, $tz);
 
-    $client = new JiraClient($config['base_url'], $config['token'], $config['verify_tls']);
-    $response = $client->get('/rest/api/2/myself');
-
+    $client = new JiraClient($baseUrl, $config['token'], $config['verify_tls']);
     $reporter = new WorklogReport($client);
-    $report = $reporter->findIssues($week);
 
-    respond(200, [
-        'name' => $response['name'],
-        'displayName' => $response['displayName'],
-        'weekStart' => $week->weekStart(),
-        'weekEnd' => $week->weekEnd(),
-        'report' => $report,
-    ]);
+    respond(200, array_merge($reporter->build($week), ["jiraBaseUrl" => $baseUrl]));
 } catch (JiraException $e) {
     respond($e->getCode(), ['error' => $e->getMessage()]);
 } catch (InvalidInputException $e) {

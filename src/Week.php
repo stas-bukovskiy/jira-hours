@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace JiraHours;
 
+use DateTimeZone;
+
 final class Week
 {
     private function __construct(
@@ -30,9 +32,23 @@ final class Week
         ];
     }
 
+    public function timeZone(): DateTimeZone {
+        return $this->start->getTimezone();
+    }
+
+    /** @return list<\DateTimeImmutable> */
+    public function days(): array
+    {
+        $days = [];
+        $startDay = $this->start;
+        for ($i = 0; $i < 7; $i++) {
+            $days[] = $startDay->modify("+{$i} days");
+        }
+        return $days;
+    }
 
 
-    public static function fromInput(?string $start, \DateTimeZone $tz): self
+    public static function fromInput(?string $start, DateTimeZone $tz): self
     {
         if ($start === null) {
             $startDay = new \DateTimeImmutable('now', $tz);

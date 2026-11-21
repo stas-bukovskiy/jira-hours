@@ -21,9 +21,104 @@ final class WorklogReport
         return $key;
     }
 
-    /** @param list<Issue> $issues
-     *  @return list<Worklog> */
-    public function findMyWorklogs(array $issues): array
+    /**
+     * @return array{
+     *   weekStart: string,
+     *   weekEnd: string,
+     *   weekTotalSeconds: int,
+     *   days: list<array{date: string, weekday: string, totalSeconds: int,
+     *                    entries: list<array{issueKey: string, summary: string, seconds: int, comment: ?string}>}>,
+     *   issues: list<array{issueKey: string, summary: string, seconds: int}>
+     * }
+     */
+    public function build(Week $week): array
+    {
+        $issues = $this->findIssues($week);
+        $worklogs = $this->findMyWorklogs($issues, $week);
+
+        return self::summarize($week, $issues, $worklogs);
+    }
+
+    /**
+     * Pure function: no HTTP, so it can be tested with fake data.
+     *
+     * @param list<Issue> $issues
+     * @param list<Worklog> $worklogs
+     * @return array{
+     *   weekStart: string,
+     *   weekEnd: string,
+     *   weekTotalSeconds: int,
+     *   days: list<array{date: string, weekday: string, totalSeconds: int,
+     *                    entries: list<array{issueKey: string, summary: string, seconds: int, comment: ?string}>}>,
+     *   issues: list<array{issueKey: string, summary: string, seconds: int}>
+     * }
+     */
+    public static function summarize(Week $week, array $issues, array $worklogs): array
+    {
+        $summaries = [];
+        foreach ($issues as $issue) {
+            $summaries[$issue->key] = $issue->summary;
+        }
+
+        $days = [];
+        foreach ($week->days() as $day) {
+            $date = $day->format('Y-m-d');
+            $days[$date] = [
+                'date' => $date,
+                'weekday' => $day->format('D'),
+                'totalSeconds' => 0,
+                'entries' => [],
+            ];
+        }
+
+
+        usort($worklogs, fn(Worklog $a, Worklog $b) => $a->started <=> $b->started);
+
+        $byIssue = [];
+        $weekTotalSeconds = 0;
+        foreach ($worklogs as $worklog) {
+            $date = $worklog->started->format('Y-m-d');
+            if (!isset($days[$date])) {
+                continue;
+            }
+
+            $summary = $summaries[$worklog->issueKey] ?? '';
+
+            $days[$date]['entries'][] = [
+                'issueKey' => $worklog->issueKey,
+                'summary' => $summary,
+                'seconds' => $worklog->seconds,
+                'comment' => $worklog->comment,
+            ];
+            $days[$date]['totalSeconds'] += $worklog->seconds;
+
+            $byIssue[$worklog->issueKey] ??= [
+                'issueKey' => $worklog->issueKey,
+                'summary' => $summary,
+                'seconds' => 0,
+            ];
+            $byIssue[$worklog->issueKey]['seconds'] += $worklog->seconds;
+
+            $weekTotalSeconds += $worklog->seconds;
+        }
+
+        $issueTotals = array_values($byIssue);
+        usort($issueTotals, fn(array $a, array $b) => $b['seconds'] <=> $a['seconds']);
+
+        return [
+            'weekStart' => $week->weekStart(),
+            'weekEnd' => $week->weekEnd(),
+            'weekTotalSeconds' => $weekTotalSeconds,
+            'days' => array_values($days),
+            'issues' => $issueTotals,
+        ];
+    }
+
+    /**
+     * @param list<Issue> $issues
+     * @return list<Worklog>
+     */
+    public function findMyWorklogs(array $issues, Week $week): array
     {
         if (empty($issues)) {
             return [];
@@ -34,12 +129,8 @@ final class WorklogReport
         foreach ($issues as $issue) {
             $worklogs = $this->getWorklogs($issue);
             $worklogs = array_values(array_filter($worklogs, fn($w) => ($w["author"]["key"] ?? '') === $currentUserKey));
-            $mapped = array_map(fn($worklog) => new Worklog(
-                $issue->key,
-                $worklog["started"],
-                (int) ($worklog["timeSpentSeconds"] ?? 0),
-                $worklog["comment"] ?? null,
-            ), $worklogs);
+
+            $mapped = array_map(fn($raw) => Worklog::fromJira($raw, $issue->key, $week->timeZone()), $worklogs);
             array_push($results, ...$mapped);
         }
         return $results;
