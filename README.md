@@ -1,58 +1,188 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Jira Hours (Laravel)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A small local dashboard that shows how many hours you logged in Jira for each day of a week,
+against a full-time target of **8 hours per weekday** and **40 hours per week**.
 
-## About Laravel
+It answers two questions at a glance:
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- Did I log a full week?
+- For the current week: am I on track right now?
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Branches
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Branch | Stack |
+| --- | --- |
+| [`main`](../../tree/main) | Plain PHP 8.1+, no framework. Composer is used only for autoloading. |
+| `laravel-port` (this one) | The same app on Laravel 13, with feature tests that use a fake Jira. |
 
-## Learning Laravel
+Both branches serve the same frontend and return the same JSON. The domain classes
+(`Week`, `Worklog`, `WorklogReport`, …) moved from `main` with only the namespace changed.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Features
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+- Week view, Monday to Sunday, with previous / next / this week navigation (also the ← and → keys).
+- Each day is coloured by status: complete (≥ 8h), partial (4–8h), short (< 4h), in progress (today), upcoming.
+- A week progress bar to 40h with an "expected so far" marker.
+- Summary cards: total logged, expected so far, difference, average per logged weekday.
+- Click a day to see its worklogs, with links to the Jira issues.
+- A per-issue table with each issue's share of the week.
+- Light and dark themes, keyboard friendly, works on a phone screen.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+## Requirements
 
-## Agentic Development
+- PHP 8.3 or newer
+- Composer
+- Jira Data Center or Server with REST API v2 and a
+  [Personal Access Token](https://confluence.atlassian.com/enterprise/using-personal-access-tokens-1026032365.html)
+  (tested on Jira Data Center 10.4)
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+No database and no Node.js are needed.
+
+## Setup
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone -b laravel-port <this repository> jira-hours
+cd jira-hours
+composer run setup     # composer install, creates .env, generates APP_KEY
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Edit `.env`:
 
-## Contributing
+| Key | Example | Meaning |
+| --- | --- | --- |
+| `JIRA_BASE_URL` | `https://jira.example.com` | Jira address. A trailing slash is removed |
+| `JIRA_TOKEN` | `NjQ3…` | Your Personal Access Token |
+| `JIRA_TIMEZONE` | `Europe/Kyiv` | Time zone used to split worklogs into days |
+| `JIRA_VERIFY_TLS` | `true` | Check the Jira TLS certificate. Use `false` only for a self-signed certificate |
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+`.env` is in `.gitignore`. Never commit it.
+If `JIRA_BASE_URL` or `JIRA_TOKEN` is missing, the API answers 500 and the reason is written to
+`storage/logs/laravel.log`.
 
-## Code of Conduct
+## Run
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+composer run dev       # php artisan serve
+```
 
-## Security Vulnerabilities
+Open http://127.0.0.1:8000.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Tests
+
+```bash
+composer test
+```
+
+The tests never call a real Jira. `Http::fake()` answers every request and `Http::preventStrayRequests()`
+fails a test that tries to reach the network. `phpunit.xml` sets its own `JIRA_*` values, so the tests
+do not read your `.env`.
+
+| Suite | What it covers |
+| --- | --- |
+| `tests/Feature/WeekReportTest.php` | The full HTTP flow: the report, the Kyiv day boundary, filtering out other people's worklogs, pagination, every error status |
+| `tests/Unit/WorklogReportSummarizeTest.php` | The pure `summarize()` function: week bounds, sorting, broken Jira data |
+
+## API
+
+```
+GET /api/week?start=YYYY-MM-DD
+```
+
+`start` is any date. The server moves it to the Monday of that week. Without `start` you get the current week.
+
+```json
+{
+  "weekStart": "2026-11-16",
+  "weekEnd": "2026-11-22",
+  "weekTotalSeconds": 123300,
+  "days": [
+    {
+      "date": "2026-11-16",
+      "weekday": "Mon",
+      "totalSeconds": 30600,
+      "entries": [
+        { "issueKey": "ABC-12", "summary": "Fix payout rounding", "seconds": 7200, "comment": "code review" }
+      ]
+    }
+  ],
+  "issues": [
+    { "issueKey": "ABC-12", "summary": "Fix payout rounding", "seconds": 7200 }
+  ],
+  "jiraBaseUrl": "https://jira.example.com"
+}
+```
+
+- `days` always has 7 items, Monday to Sunday. `entries` are sorted by start time. `comment` can be `null`.
+- `issues` holds only issues with time in this week, sorted by time, largest first.
+- All durations are integer seconds.
+
+Errors return a status code and `{ "error": "message" }`:
+
+| Status | When |
+| --- | --- |
+| 400 | `start` is not a valid `YYYY-MM-DD` date |
+| 401 | Jira rejected the token (Jira answered 401 or 403) |
+| 404 | Unknown `/api/*` route |
+| 405 | Method other than `GET` / `HEAD`. The `Allow` header lists the allowed methods |
+| 500 | Missing configuration or a bug. Details go to the log, not to the response |
+| 502 | Jira is unreachable, returned an error, or returned invalid JSON |
+| 504 | Jira did not answer in time |
+
+## How it works
+
+```
+browser ──GET /api/week?start=…──► WeekReportController
+                                     │
+                                     ├─ Week::fromInput()          validate the date, find Monday..Sunday
+                                     ├─ GET /rest/api/2/search     issues with my worklogs (JQL, paginated)
+                                     ├─ GET /rest/api/2/myself     my user key
+                                     ├─ GET /rest/api/2/issue/{key}/worklog   for each issue (paginated)
+                                     └─ WorklogReport::summarize() pure function: filter, convert time zone, sum
+```
+
+A few decisions worth knowing:
+
+- **Search range is one day wider on each side.** JQL `worklogDate` uses the time zone of the Jira user profile,
+  which can differ from `JIRA_TIMEZONE`. The extra days are fetched and then dropped after the
+  conversion to the configured time zone.
+- **Worklogs are filtered by `author.key`**, not by name or display name. The key does not change when a user is renamed.
+- **One request per issue (N+1).** Jira has no endpoint for "my worklogs in a date range" with full details,
+  so a week with 10 issues makes about 12 requests (around 2 seconds).
+- **`summarize()` has no I/O.** All the logic that can be wrong (days, time zones, totals, sorting) is in one
+  pure function that is unit-tested without Jira.
+
+## Where things live
+
+| Concern | Plain PHP (`main`) | Laravel (this branch) |
+| --- | --- | --- |
+| Configuration | `config.php` | `.env` → `config/jira.php` |
+| HTTP client | `JiraClient` on curl | `JiraClient` on `Http::` (Guzzle 8) |
+| Wiring | `new JiraClient(...)` in `api.php` | `JiraClient` singleton in `AppServiceProvider`, the rest is autowired |
+| Routing, 405 | `api.php` checks the method | `routes/api.php` |
+| Errors → status | `try / catch` in `api.php` | `withExceptions()` in `bootstrap/app.php` |
+| Tests | — | PHPUnit with `Http::fake()` |
+
+```
+app/
+  Http/Controllers/WeekReportController.php   input → Week → report → JSON
+  Jira/                                        domain and Jira client, no Laravel inside except JiraClient
+  Providers/AppServiceProvider.php            JiraClient binding, fails fast without URL or token
+bootstrap/app.php                              routes and the error contract
+config/jira.php                                JIRA_* settings
+public/index.html                              frontend: one file, plain HTML, CSS and JavaScript
+routes/api.php, routes/web.php
+tests/
+```
+
+## Security notes
+
+- The token lives only in `.env`. `JiraClient` marks it `#[\SensitiveParameter]`, so it does not appear in stack traces.
+- API errors return a short message only. Stack traces go to the log, also when `APP_DEBUG=true`.
+- `php artisan config:show jira` prints the token in plain text. Do not paste its output anywhere.
+- The `start` value is validated before it is used in JQL, so it cannot change the query.
+- Data from Jira (summaries, comments) is rendered with `textContent`, never as HTML.
+- The server is meant to run on `127.0.0.1` only. It has no authentication of its own.
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+[MIT](LICENSE)

@@ -25,6 +25,7 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
-# plain-PHP version (main)
+# Files from the main (plain PHP) branch and local SQLite files
 config.php
 .DS_Store
+/database/
