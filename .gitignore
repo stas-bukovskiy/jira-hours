@@ -8,3 +8,11 @@ config.php
 
 # Composer dependencies (rebuilt by composer install)
 vendor/
+
+# Leftovers from the laravel-port branch (untracked files survive git switch).
+# .env holds the Jira token there.
+.env
+.phpunit.result.cache
+/bootstrap/
+/database/
+/storage/
