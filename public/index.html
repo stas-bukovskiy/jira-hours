@@ -360,6 +360,24 @@ tfoot td { font-weight: 700; border-bottom: 0; }
     return { phase, logged, expected, diff, avg, avgDays, kind, headline };
   }
 
+  // ---------- Generic helpers ----------
+  const NAV_DEBOUNCE_MS = 250;
+
+  function debounce(fn, ms) {
+    let timer = null;
+    const wrapped = (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { timer = null; fn(...args); }, ms);
+    };
+    wrapped.cancel = () => { clearTimeout(timer); timer = null; };
+    return wrapped;
+  }
+
+  // The current week lives at the bare URL so a bookmark of "/" always means "this week".
+  function weekUrl(monday, today) {
+    return monday === mondayOf(today) ? location.pathname : `?start=${monday}`;
+  }
+
   // ---------- DOM helper (textContent only; never innerHTML) ----------
   function h(tag, props = {}, ...kids) {
     const e = document.createElement(tag);
@@ -625,7 +643,7 @@ tfoot td { font-weight: 700; border-bottom: 0; }
       res = await fetch(`api.php?start=${encodeURIComponent(monday)}`, { signal, headers: { Accept: 'application/json' } });
     } catch (err) {
       if (err && err.name === 'AbortError') throw err;
-      throw new ApiError('Cannot reach the local server.', 'Is it running? Start it with: php -S 127.0.0.1:3000 -t public');
+      throw new ApiError('Cannot reach the local server.', 'Is it running? Start it with: php -S 127.0.0.1:47321 -t public');
     }
     let body = null;
     try { body = JSON.parse(await res.text()); } catch (err) {
@@ -637,8 +655,16 @@ tfoot td { font-weight: 700; border-bottom: 0; }
     }
     const valid = body && typeof body === 'object' && body.weekStart === monday && Array.isArray(body.days) && body.days.length === 7
       && body.days.every((d) => d && Array.isArray(d.entries)) && Array.isArray(body.issues) && Number.isFinite(body.weekTotalSeconds);
-    if (!valid) throw new ApiError('The server returned an unexpected response.', 'Is api.php being served by PHP? Start it with: php -S 127.0.0.1:3000 -t public');
+    if (!valid) throw new ApiError('The server returned an unexpected response.', 'Is api.php being served by PHP? Start it with: php -S 127.0.0.1:47321 -t public');
     return body;
+  }
+
+  // Drop the previous week's data right away so it never shows under a new header.
+  function showLoading() {
+    if (state.controller) state.controller.abort();
+    state.controller = null;
+    Object.assign(state, { status: 'loading', data: null, error: null, animate: true });
+    render();
   }
 
   async function load() {
@@ -646,8 +672,8 @@ tfoot td { font-weight: 700; border-bottom: 0; }
     const ctrl = new AbortController();
     state.controller = ctrl;
     state.today = todayInKyiv();
-    Object.assign(state, { status: 'loading', data: null, error: null, animate: true });
-    render();
+    if (state.status !== 'loading') showLoading();
+    else render();
     try {
       const data = await fetchWeek(state.monday, ctrl.signal);
       if (state.controller !== ctrl) return;
@@ -661,14 +687,24 @@ tfoot td { font-weight: 700; border-bottom: 0; }
   }
 
   // ---------- Navigation ----------
-  function setWeek(monday) {
+  const loadDebounced = debounce(load, NAV_DEBOUNCE_MS);
+
+  // Header, URL and skeleton update instantly; the request waits until clicks settle.
+  function setWeek(monday, { debounced = false } = {}) {
     state.monday = monday;
+    state.today = todayInKyiv();
     state.expanded.clear();
-    try { history.replaceState(null, '', `?start=${monday}`); } catch { /* ignore */ }
-    load();
+    try { history.replaceState(null, '', weekUrl(monday, state.today)); } catch { /* ignore */ }
+    showLoading();
+    if (debounced) {
+      loadDebounced();
+    } else {
+      loadDebounced.cancel();
+      load();
+    }
   }
 
-  const shiftWeek = (n) => setWeek(addDays(state.monday, 7 * n));
+  const shiftWeek = (n) => setWeek(addDays(state.monday, 7 * n), { debounced: true });
 
   els.prev.addEventListener('click', () => shiftWeek(-1));
   els.next.addEventListener('click', () => shiftWeek(1));
@@ -695,7 +731,12 @@ tfoot td { font-weight: 700; border-bottom: 0; }
 
   // Keep "today" correct if the tab stays open past midnight (Kyiv time).
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && state.today && todayInKyiv() !== state.today) load();
+    if (document.visibilityState !== 'visible') return;
+    const now = todayInKyiv();
+    if (!state.today || now === state.today) return;
+    // If we were showing "this week", follow it into the new week.
+    if (state.monday === mondayOf(state.today)) setWeek(mondayOf(now));
+    else load();
   });
 
   // ---------- Init ----------
