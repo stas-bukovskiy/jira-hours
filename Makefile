@@ -1,5 +1,5 @@
 HOST ?= 127.0.0.1
-PORT ?= 3000
+PORT ?= 47321
 URL  := http://$(HOST):$(PORT)/
 
 .DEFAULT_GOAL := run
