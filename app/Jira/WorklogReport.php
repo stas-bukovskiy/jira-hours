@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Jira;
@@ -8,8 +9,7 @@ final class WorklogReport
     public function __construct(
         private readonly JiraClient $client,
         private readonly int $pageSize = 100,
-    ) {
-    }
+    ) {}
 
     private function currentUserKey(): string
     {
@@ -18,6 +18,7 @@ final class WorklogReport
         if ($key === '') {
             throw new JiraException('got empty user key', 502);
         }
+
         return $key;
     }
 
@@ -42,8 +43,8 @@ final class WorklogReport
     /**
      * Pure function: no HTTP, so it can be tested with fake data.
      *
-     * @param list<Issue> $issues
-     * @param list<Worklog> $worklogs
+     * @param  list<Issue>  $issues
+     * @param  list<Worklog>  $worklogs
      * @return array{
      *   weekStart: string,
      *   weekEnd: string,
@@ -71,14 +72,13 @@ final class WorklogReport
             ];
         }
 
-
-        usort($worklogs, fn(Worklog $a, Worklog $b) => $a->started <=> $b->started);
+        usort($worklogs, fn (Worklog $a, Worklog $b) => $a->started <=> $b->started);
 
         $byIssue = [];
         $weekTotalSeconds = 0;
         foreach ($worklogs as $worklog) {
             $date = $worklog->started->format('Y-m-d');
-            if (!isset($days[$date])) {
+            if (! isset($days[$date])) {
                 continue;
             }
 
@@ -103,7 +103,7 @@ final class WorklogReport
         }
 
         $issueTotals = array_values($byIssue);
-        usort($issueTotals, fn(array $a, array $b) => $b['seconds'] <=> $a['seconds']);
+        usort($issueTotals, fn (array $a, array $b) => $b['seconds'] <=> $a['seconds']);
 
         return [
             'weekStart' => $week->weekStart(),
@@ -115,7 +115,7 @@ final class WorklogReport
     }
 
     /**
-     * @param list<Issue> $issues
+     * @param  list<Issue>  $issues
      * @return list<Worklog>
      */
     public function findMyWorklogs(array $issues, Week $week): array
@@ -128,11 +128,12 @@ final class WorklogReport
         $results = [];
         foreach ($issues as $issue) {
             $worklogs = $this->getWorklogs($issue);
-            $worklogs = array_values(array_filter($worklogs, fn($w) => ($w["author"]["key"] ?? '') === $currentUserKey));
+            $worklogs = array_values(array_filter($worklogs, fn ($w) => ($w['author']['key'] ?? '') === $currentUserKey));
 
-            $mapped = array_map(fn($raw) => Worklog::fromJira($raw, $issue->key, $week->timeZone()), $worklogs);
+            $mapped = array_map(fn ($raw) => Worklog::fromJira($raw, $issue->key, $week->timeZone()), $worklogs);
             array_push($results, ...$mapped);
         }
+
         return $results;
     }
 
@@ -142,8 +143,8 @@ final class WorklogReport
         $worklogs = [];
         $startAt = 0;
         do {
-            $response = $this->client->get("/rest/api/2/issue/{$issueKey}/worklog", ["startAt" => $startAt]);
-            $worklog = $response["worklogs"] ?? [];
+            $response = $this->client->get("/rest/api/2/issue/{$issueKey}/worklog", ['startAt' => $startAt]);
+            $worklog = $response['worklogs'] ?? [];
             if (count($worklog) === 0) {
                 break;
             }
@@ -151,32 +152,30 @@ final class WorklogReport
             array_push($worklogs, ...$worklog);
             $startAt += count($worklog);
         } while ($startAt < ($response['total'] ?? 0));
+
         return $worklogs;
     }
-
-
 
     /** @return list<Issue> */
     public function findIssues(Week $week): array
     {
         [$from, $to] = $week->searchRange();
         $queries = [
-            "jql" => sprintf('worklogAuthor = currentUser() AND worklogDate >= "%s" AND worklogDate <= "%s"', $from, $to),
-            "fields" => "summary",
-            "startAt" => 0,
-            "maxResults" => $this->pageSize,
+            'jql' => sprintf('worklogAuthor = currentUser() AND worklogDate >= "%s" AND worklogDate <= "%s"', $from, $to),
+            'fields' => 'summary',
+            'startAt' => 0,
+            'maxResults' => $this->pageSize,
         ];
-
 
         $results = [];
         do {
-            $result = $this->client->get("/rest/api/2/search", $queries);
-            $issues = $result["issues"] ?? [];
+            $result = $this->client->get('/rest/api/2/search', $queries);
+            $issues = $result['issues'] ?? [];
             if (count($issues) === 0) {
                 break;
             }
 
-            $mapped = array_map(fn($issue) => new Issue($issue["key"], $issue['fields']['summary'] ?? ''), $issues);
+            $mapped = array_map(fn ($issue) => new Issue($issue['key'], $issue['fields']['summary'] ?? ''), $issues);
             array_push($results, ...$mapped);
 
             $queries['startAt'] += \count($issues);

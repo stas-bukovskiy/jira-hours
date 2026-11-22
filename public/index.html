@@ -640,10 +640,10 @@ tfoot td { font-weight: 700; border-bottom: 0; }
   async function fetchWeek(monday, signal) {
     let res;
     try {
-      res = await fetch(`api.php?start=${encodeURIComponent(monday)}`, { signal, headers: { Accept: 'application/json' } });
+      res = await fetch(`/api/week?start=${encodeURIComponent(monday)}`, { signal, headers: { Accept: 'application/json' } });
     } catch (err) {
       if (err && err.name === 'AbortError') throw err;
-      throw new ApiError('Cannot reach the local server.', 'Is it running? Start it with: php -S 127.0.0.1:47321 -t public');
+      throw new ApiError('Cannot reach the local server.', 'Is it running? Start it with: php artisan serve');
     }
     let body = null;
     try { body = JSON.parse(await res.text()); } catch (err) {
@@ -655,7 +655,7 @@ tfoot td { font-weight: 700; border-bottom: 0; }
     }
     const valid = body && typeof body === 'object' && body.weekStart === monday && Array.isArray(body.days) && body.days.length === 7
       && body.days.every((d) => d && Array.isArray(d.entries)) && Array.isArray(body.issues) && Number.isFinite(body.weekTotalSeconds);
-    if (!valid) throw new ApiError('The server returned an unexpected response.', 'Is api.php being served by PHP? Start it with: php -S 127.0.0.1:47321 -t public');
+    if (!valid) throw new ApiError('The server returned an unexpected response.', 'Is the Laravel app running? Start it with: php artisan serve');
     return body;
   }
 

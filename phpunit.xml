@@ -32,5 +32,9 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="JIRA_BASE_URL" value="https://jira.test" force="true"/>
+        <env name="JIRA_TOKEN" value="test-token" force="true"/>
+        <env name="JIRA_TIMEZONE" value="Europe/Kyiv" force="true"/>
+        <env name="JIRA_VERIFY_TLS" value="true" force="true"/>
     </php>
 </phpunit>

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Jira;
@@ -10,29 +11,29 @@ final class Week
     private function __construct(
         private readonly \DateTimeImmutable $start,
         private readonly \DateTimeImmutable $end
-    ) {
-    }
+    ) {}
 
     public function weekStart(): string
     {
-        return $this->start->format("Y-m-d");
+        return $this->start->format('Y-m-d');
     }
 
     public function weekEnd(): string
     {
-        return $this->end->format("Y-m-d");
+        return $this->end->format('Y-m-d');
     }
 
     /** @return array{string, string} */
     public function searchRange(): array
     {
         return [
-            $this->start->modify("-1 days")->format("Y-m-d"),
-            $this->end->modify("+1 days")->format("Y-m-d"),
+            $this->start->modify('-1 days')->format('Y-m-d'),
+            $this->end->modify('+1 days')->format('Y-m-d'),
         ];
     }
 
-    public function timeZone(): DateTimeZone {
+    public function timeZone(): DateTimeZone
+    {
         return $this->start->getTimezone();
     }
 
@@ -44,9 +45,9 @@ final class Week
         for ($i = 0; $i < 7; $i++) {
             $days[] = $startDay->modify("+{$i} days");
         }
+
         return $days;
     }
-
 
     public static function fromInput(?string $start, DateTimeZone $tz): self
     {
@@ -64,5 +65,4 @@ final class Week
 
         return new self($monday, $monday->modify('+6 days'));
     }
-
 }

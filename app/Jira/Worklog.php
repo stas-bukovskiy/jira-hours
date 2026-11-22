@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Jira;
@@ -10,13 +11,12 @@ final class Worklog
         public readonly \DateTimeImmutable $started,
         public readonly int $seconds,
         public readonly ?string $comment,
-    ) {
-    }
+    ) {}
 
     /**
      * Named constructor: one place that knows the shape of a Jira worklog.
      *
-     * @param array<string, mixed> $raw one item of "worklogs" from /issue/{key}/worklog
+     * @param  array<string, mixed>  $raw  one item of "worklogs" from /issue/{key}/worklog
      */
     public static function fromJira(array $raw, string $issueKey, \DateTimeZone $tz): self
     {

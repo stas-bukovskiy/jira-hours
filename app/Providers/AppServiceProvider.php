@@ -1,9 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
 use App\Jira\JiraClient;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -14,15 +16,14 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(JiraClient::class, function () {
             $baseUrl = config('jira.base_url');
-            if (!$baseUrl) {
+            if (! $baseUrl) {
                 throw new \RuntimeException('JIRA_BASE_URL is not set');
             }
 
             $token = config('jira.token');
-            if (!$token) {
+            if (! $token) {
                 throw new \RuntimeException('JIRA_TOKEN is not set');
             }
-
 
             return new JiraClient($baseUrl, $token, config('jira.verify_tls'));
         });

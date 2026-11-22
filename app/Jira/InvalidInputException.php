@@ -1,8 +1,7 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Jira;
 
-final class InvalidInputException extends \InvalidArgumentException
-{
-}
+final class InvalidInputException extends \InvalidArgumentException {}

@@ -1,10 +1,14 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Jira;
 
-use Illuminate\Support\Facades\Http, Illuminate\Http\Client\ConnectionException;
-use GuzzleHttp\Exception\{ConnectTimeoutException, NetworkTimeoutException, ResponseTimeoutException};
+use GuzzleHttp\Exception\ConnectTimeoutException;
+use GuzzleHttp\Exception\NetworkTimeoutException;
+use GuzzleHttp\Exception\ResponseTimeoutException;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Http;
 
 final class JiraClient
 {
@@ -14,9 +18,7 @@ final class JiraClient
         private readonly string $baseUrl,
         #[\SensitiveParameter] private readonly string $token,
         private readonly bool $verifyTls,
-    ) {
-    }
-
+    ) {}
 
     public function get(string $path, array $query = []): array
     {
@@ -40,19 +42,17 @@ final class JiraClient
         $statusCode = $resp->status();
         if ($statusCode < 200 || $statusCode >= 300) {
             match (true) {
-                \in_array($statusCode, [401, 403], true) => throw new JiraException("invalid Jira access token", 401),
-                400 <= $statusCode && $statusCode < 500 => throw new JiraException("Jira rejected the request ({$statusCode})", 502),
+                \in_array($statusCode, [401, 403], true) => throw new JiraException('invalid Jira access token', 401),
+                $statusCode >= 400 && $statusCode < 500 => throw new JiraException("Jira rejected the request ({$statusCode})", 502),
                 default => throw new JiraException("Jira returned {$statusCode}", 502),
             };
         }
 
-
         $responseDecoded = $resp->json();
-        if (!\is_array($responseDecoded)) {
+        if (! \is_array($responseDecoded)) {
             throw new JiraException('received invalid JSON', 502);
         }
 
         return $responseDecoded;
     }
-
 }
