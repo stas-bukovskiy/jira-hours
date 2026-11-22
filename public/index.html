@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Jira Hours</title>
+<style>
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --surface-2: #f8f9fb;
+  --border: #dde2ea;
+  --text: #1b2230;
+  --muted: #566074;
+  --track: #e4e8ef;
+  --focus: #1d4ed8;
+  --link: #1d4ed8;
+  --shadow: 0 1px 2px rgba(20, 30, 50, .06), 0 2px 8px rgba(20, 30, 50, .04);
+
+  --ok: #146c2e;       --ok-bg: #e6f4ea;
+  --warn: #8a4b00;     --warn-bg: #fff2dc;
+  --bad: #b3261e;      --bad-bg: #fdeceb;
+  --info: #1d4ed8;     --info-bg: #e8effe;
+  --neutral: #566074;  --neutral-bg: #eceff4;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e131a;
+    --surface: #171e28;
+    --surface-2: #1c2431;
+    --border: #2b3444;
+    --text: #e6eaf0;
+    --muted: #9aa6b8;
+    --track: #2a3342;
+    --focus: #8ab4ff;
+    --link: #8ab4ff;
+    --shadow: none;
+
+    --ok: #5fd38a;       --ok-bg: #123222;
+    --warn: #f5b84a;     --warn-bg: #3a2a0c;
+    --bad: #ff8a80;      --bad-bg: #3d1b19;
+    --info: #8ab4ff;     --info-bg: #15284a;
+    --neutral: #9aa6b8;  --neutral-bg: #232c3a;
+  }
+}
+
+.k-ok      { --c: var(--ok);      --c-bg: var(--ok-bg); }
+.k-warn    { --c: var(--warn);    --c-bg: var(--warn-bg); }
+.k-bad     { --c: var(--bad);     --c-bg: var(--bad-bg); }
+.k-info    { --c: var(--info);    --c-bg: var(--info-bg); }
+.k-neutral { --c: var(--neutral); --c-bg: var(--neutral-bg); }
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+  overflow-x: hidden;
+}
+a { color: var(--link); }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+
+.wrap { max-width: 980px; margin: 0 auto; padding: 24px 16px 64px; }
+.hidden { display: none !important; }
+
+/* Header */
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin-bottom: 24px; }
+.brand { margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing: .01em; }
+.brand small { display: block; font-weight: 500; font-size: .95rem; color: var(--muted); }
+.nav { display: flex; gap: 8px; }
+.btn {
+  appearance: none; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 14px; min-height: 40px; box-shadow: var(--shadow);
+}
+.btn:hover:not(:disabled) { background: var(--surface-2); }
+.btn:disabled { opacity: .5; cursor: default; }
+
+/* Banner */
+.banner {
+  display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-radius: 12px; margin-bottom: 20px;
+  background: var(--c-bg); color: var(--c); border: 1px solid var(--c);
+}
+.banner strong { display: block; }
+.banner p { margin: 2px 0 0; }
+
+/* Verdict */
+.verdict { display: flex; align-items: center; gap: 14px; margin: 0 0 20px; }
+.verdict-icon {
+  flex: none; width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 1.4rem; font-weight: 700;
+  background: var(--c-bg); color: var(--c); border: 2px solid var(--c);
+}
+.verdict-text { margin: 0; font-size: clamp(1.35rem, 4.2vw, 2rem); line-height: 1.2; font-weight: 700; color: var(--c); }
+
+/* Cards & panels */
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 18px 20px; }
+.section { margin-top: 24px; }
+.section > h2 { margin: 0 0 10px; font-size: 1rem; text-transform: none; }
+.section-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; margin-bottom: 10px; }
+.section-head h2 { margin: 0; font-size: 1rem; }
+.legend { color: var(--muted); font-size: .85rem; display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 2px; height: 14px; background: var(--text); }
+
+/* Week progress */
+.pbar-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; margin-bottom: 10px; }
+.pbar-label { font-size: 1.15rem; font-weight: 700; }
+.pbar-track { position: relative; height: 16px; border-radius: 8px; background: var(--track); }
+.pbar-fill { height: 100%; border-radius: 8px; background: var(--c); }
+.marker { position: absolute; top: -5px; bottom: -5px; width: 2px; margin-left: -1px; background: var(--text); border-radius: 1px; }
+
+/* Summary cards */
+.cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); min-width: 0; }
+.card dt { margin: 0; color: var(--muted); font-size: .85rem; }
+.card dd { margin: 0; }
+.card .v { font-size: 1.5rem; font-weight: 700; line-height: 1.3; color: var(--c, var(--text)); overflow-wrap: anywhere; }
+.card .s { color: var(--muted); font-size: .8rem; }
+
+/* Notice */
+.notice { margin-top: 16px; padding: 18px 20px; border-radius: 14px; background: var(--info-bg); color: var(--info); border: 1px dashed var(--info); }
+.notice strong { display: block; }
+
+/* Days */
+.days { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.day { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+.day.today { border-color: var(--info); box-shadow: 0 0 0 1px var(--info); }
+.day-btn {
+  appearance: none; width: 100%; text-align: left; cursor: pointer; background: none; border: 0; padding: 12px 16px;
+  display: grid; align-items: center; gap: 8px 14px;
+  grid-template-columns: 9.5rem minmax(0, 1fr) 5rem 8.5rem 7.5rem;
+}
+.day-btn:hover { background: var(--surface-2); }
+.day-btn:focus-visible { outline-offset: -3px; border-radius: 12px; }
+.d-name { font-weight: 600; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.d-name .chev { display: inline-block; width: 1em; color: var(--muted); transition: transform .15s; }
+.day-btn[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.d-name .date { color: var(--muted); font-weight: 400; }
+.pill { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 1px 7px; border-radius: 999px; background: var(--info); color: var(--surface); }
+.d-hours { text-align: right; font-weight: 700; }
+.d-delta { text-align: right; font-size: .9rem; color: var(--c, var(--muted)); font-weight: 600; }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: .85rem; font-weight: 600; background: var(--c-bg); color: var(--c); white-space: nowrap; }
+.track { position: relative; height: 12px; border-radius: 6px; background: var(--track); }
+.fill { height: 100%; border-radius: 6px; background: var(--c); }
+.track .marker { top: -3px; bottom: -3px; opacity: .8; }
+
+.entries-box { border-top: 1px solid var(--border); background: var(--surface-2); padding: 8px 16px 12px; }
+.entries { list-style: none; margin: 0; padding: 0; }
+.entries li { padding: 8px 0; border-top: 1px solid var(--border); }
+.entries li:first-child { border-top: 0; }
+.e-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 12px; align-items: baseline; }
+.e-key { font-weight: 600; }
+.e-sum { overflow-wrap: anywhere; }
+.e-time { font-weight: 600; white-space: nowrap; }
+.e-comment { margin: 4px 0 0; color: var(--muted); font-size: .9rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.empty-entries { margin: 6px 0 0; color: var(--muted); }
+
+/* Issues table */
+.table-scroll { overflow-x: auto; }
+table { width: 100%; min-width: 560px; border-collapse: collapse; }
+th, td { padding: 10px 12px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-size: .8rem; font-weight: 600; white-space: nowrap; }
+td.num, th.num { text-align: right; white-space: nowrap; }
+td.sum { overflow-wrap: anywhere; }
+tfoot td { font-weight: 700; border-bottom: 0; }
+.share { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.share .mini { width: 72px; height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; flex: none; }
+.share .mini > span { display: block; height: 100%; background: var(--info); }
+.share b { display: inline-block; min-width: 3ch; text-align: right; font-weight: 600; }
+.panel.flush { padding: 4px 8px; }
+
+/* Skeleton */
+.skel { border-radius: 10px; background: var(--track); height: 20px; animation: pulse 1.2s ease-in-out infinite; }
+.skel.lg { height: 44px; width: min(420px, 100%); }
+.skel.card-s { height: 84px; }
+.skel.row { height: 52px; margin-bottom: 8px; border-radius: 12px; }
+@keyframes pulse { 50% { opacity: .45; } }
+@keyframes grow { from { width: 0; } }
+.animate .fill, .animate .pbar-fill, .animate .mini > span { animation: grow .5s ease-out; }
+
+@media (max-width: 760px) {
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .day-btn {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "name hours" "bar bar" "status delta";
+  }
+  .d-name { grid-area: name; } .d-hours { grid-area: hours; } .d-bar { grid-area: bar; }
+  .d-status { grid-area: status; } .d-delta { grid-area: delta; }
+}
+@media (max-width: 420px) {
+  .cards { grid-template-columns: 1fr; }
+  .nav { width: 100%; }
+  .nav .btn { flex: 1; padding-inline: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand">Jira Hours <small id="range">&nbsp;</small></h1>
+    <nav class="nav" aria-label="Week navigation">
+      <button class="btn" id="prev" type="button" aria-label="Previous week">← Previous</button>
+      <button class="btn" id="today" type="button">This week</button>
+      <button class="btn" id="next" type="button" aria-label="Next week">Next →</button>
+    </nav>
+  </header>
+
+  <main id="app" aria-busy="true">
+    <div id="banner"></div>
+    <div id="verdict" aria-live="polite"></div>
+    <div id="progress"></div>
+    <dl id="cards" class="cards"></dl>
+    <div id="notice"></div>
+    <section class="section" id="days-section" aria-labelledby="days-h">
+      <div class="section-head">
+        <h2 id="days-h">Days</h2>
+        <span class="legend hidden" id="days-legend"><i aria-hidden="true"></i> 8h target</span>
+      </div>
+      <ul class="days" id="days"></ul>
+    </section>
+    <section class="section" id="issues-section" aria-labelledby="issues-h">
+      <h2 id="issues-h">Issues this week</h2>
+      <div id="issues"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- Constants ----------
+  const TZ = 'Europe/Kyiv';
+  const HOUR = 3600;
+  const DAY_TARGET = 8 * HOUR;
+  const WEEK_TARGET = 40 * HOUR;
+  const PARTIAL_MIN = 4 * HOUR;
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const YMD = /^\d{4}-\d{2}-\d{2}$/;
+  const MS_DAY = 86400000;
+
+  // ---------- Pure helpers: durations ----------
+  function formatDuration(seconds) {
+    const total = Math.max(0, Math.round(seconds / 60));
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+    if (h && m) return `${h}h ${m}m`;
+    if (h) return `${h}h`;
+    return `${m}m`;
+  }
+
+  function formatSigned(seconds) {
+    const body = formatDuration(Math.abs(seconds));
+    if (Math.round(Math.abs(seconds) / 60) === 0) return body;
+    return (seconds > 0 ? '+' : '−') + body;
+  }
+
+  // ---------- Pure helpers: dates (all on "YYYY-MM-DD" strings, UTC math) ----------
+  const utcMs = (s) => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d); };
+  const fromMs = (ms) => new Date(ms).toISOString().slice(0, 10);
+  const addDays = (s, n) => fromMs(utcMs(s) + n * MS_DAY);
+  const isValidYmd = (s) => typeof s === 'string' && YMD.test(s) && fromMs(utcMs(s)) === s;
+  const isWeekend = (s) => { const d = new Date(utcMs(s)).getUTCDay(); return d === 0 || d === 6; };
+
+  function mondayOf(s) {
+    const dow = new Date(utcMs(s)).getUTCDay(); // 0 = Sunday
+    return addDays(s, -((dow + 6) % 7));
+  }
+
+  function todayInKyiv(now = new Date()) {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  }
+
+  function formatRange(monday) {
+    const a = monday.split('-').map(Number);
+    const b = addDays(monday, 6).split('-').map(Number);
+    if (a[0] === b[0] && a[1] === b[1]) return `${a[2]}–${b[2]} ${MONTHS[a[1] - 1]} ${a[0]}`;
+    if (a[0] === b[0]) return `${a[2]} ${MONTHS[a[1] - 1]} – ${b[2]} ${MONTHS[b[1] - 1]} ${a[0]}`;
+    return `${a[2]} ${MONTHS[a[1] - 1]} ${a[0]} – ${b[2]} ${MONTHS[b[1] - 1]} ${b[0]}`;
+  }
+
+  function formatShortDate(s) {
+    const [, m, d] = s.split('-').map(Number);
+    return `${d} ${MONTHS[m - 1]}`;
+  }
+
+  // ---------- Pure helpers: domain ----------
+  function weekPhase(monday, today) {
+    if (today < monday) return 'future';
+    if (today > addDays(monday, 6)) return 'past';
+    return 'current';
+  }
+
+  // Target to date: 8h x weekdays strictly before today (today is still in progress).
+  function expectedSoFar(monday, today) {
+    let days = 0;
+    for (let i = 0; i < 5; i++) if (addDays(monday, i) < today) days++;
+    return days * DAY_TARGET;
+  }
+
+  function dayStatus(day, today) {
+    const s = day.totalSeconds;
+    if (isWeekend(day.date)) {
+      return s > 0 ? { kind: 'neutral', key: 'extra', label: 'Extra', icon: '+' } : { key: 'hidden' };
+    }
+    if (day.date > today) return { kind: 'neutral', key: 'future', label: 'Upcoming', icon: '○' };
+    if (day.date === today && s < DAY_TARGET) return { kind: 'info', key: 'progress', label: 'In progress', icon: '●' };
+    if (s >= DAY_TARGET) return { kind: 'ok', key: 'done', label: 'Complete', icon: '✓' };
+    if (s >= PARTIAL_MIN) return { kind: 'warn', key: 'partial', label: 'Partial', icon: '◐' };
+    return { kind: 'bad', key: 'short', label: s === 0 ? 'Missing' : 'Short', icon: '✕' };
+  }
+
+  function dayDelta(day, status) {
+    const s = day.totalSeconds;
+    if (status.key === 'extra' || status.key === 'future' || status.key === 'hidden') return '';
+    if (s > DAY_TARGET) return `+${formatDuration(s - DAY_TARGET)} overtime`;
+    if (s === DAY_TARGET) return '';
+    if (status.key === 'progress') return `${formatDuration(DAY_TARGET - s)} to go`;
+    return formatSigned(s - DAY_TARGET);
+  }
+
+  function weekSummary(data, today) {
+    const phase = weekPhase(data.weekStart, today);
+    const logged = data.weekTotalSeconds;
+    const expected = expectedSoFar(data.weekStart, today);
+    const diff = logged - expected;
+    const weekdays = data.days.filter((d) => !isWeekend(d.date) && d.totalSeconds > 0);
+    const avgDays = weekdays.length;
+    const avg = avgDays ? weekdays.reduce((n, d) => n + d.totalSeconds, 0) / avgDays : null;
+
+    let kind, headline;
+    const detail = `${formatDuration(logged)} logged of ${formatDuration(expected)} expected`;
+    if (phase === 'future') {
+      kind = 'neutral';
+      headline = logged > 0 ? `Upcoming week · ${formatDuration(logged)} logged` : 'Upcoming week · nothing expected yet';
+    } else if (logged >= WEEK_TARGET) {
+      kind = 'ok';
+      headline = `Week complete · ${formatDuration(logged)}`;
+    } else if (phase === 'current' && expected === 0) {
+      kind = 'info';
+      headline = `Week just started · ${formatDuration(logged)} logged`;
+    } else if (logged >= expected) {
+      kind = 'ok';
+      headline = `On track · ${detail}`;
+    } else {
+      // Same thresholds as the 40h scale: >= half is orange, less is red.
+      kind = logged >= expected / 2 ? 'warn' : 'bad';
+      headline = `${formatDuration(expected - logged)} behind · ${detail}`;
+    }
+    return { phase, logged, expected, diff, avg, avgDays, kind, headline };
+  }
+
+  // ---------- DOM helper (textContent only; never innerHTML) ----------
+  function h(tag, props = {}, ...kids) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (v == null || v === false) continue;
+      if (k === 'class') e.className = v;
+      else if (k === 'text') e.textContent = v;
+      else if (k === 'style') for (const [p, val] of Object.entries(v)) e.style.setProperty(p, val);
+      else e.setAttribute(k, v === true ? '' : String(v));
+    }
+    const add = (kid) => {
+      if (kid == null || kid === false) return;
+      if (Array.isArray(kid)) kid.forEach(add);
+      else e.append(kid);
+    };
+    kids.forEach(add);
+    return e;
+  }
+
+  const pct = (part, whole) => (whole > 0 ? Math.min(100, Math.max(0, (part / whole) * 100)) : 0);
+
+  function safeBase(url) {
+    try {
+      const u = new URL(url);
+      return u.protocol === 'http:' || u.protocol === 'https:' ? String(url).replace(/\/+$/, '') : null;
+    } catch { return null; }
+  }
+
+  function issueLink(base, key, cls) {
+    if (!base) return h('span', { class: cls, text: key });
+    return h('a', {
+      class: cls, text: key, target: '_blank', rel: 'noopener noreferrer',
+      href: `${base}/browse/${encodeURIComponent(key)}`,
+    });
+  }
+
+  // ---------- State ----------
+  const state = {
+    monday: null,
+    today: null,
+    status: 'loading', // loading | ok | error
+    data: null,
+    error: null,
+    expanded: new Set(),
+    animate: true,
+    controller: null,
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const els = {
+    app: $('app'), range: $('range'), prev: $('prev'), today: $('today'), next: $('next'),
+    banner: $('banner'), verdict: $('verdict'), progress: $('progress'), cards: $('cards'),
+    notice: $('notice'), days: $('days'), legend: $('days-legend'), issues: $('issues'),
+    daysSection: $('days-section'), issuesSection: $('issues-section'),
+  };
+
+  // ---------- Render functions ----------
+  function renderHeader() {
+    const range = formatRange(state.monday);
+    els.range.textContent = range;
+    document.title = `Jira Hours · ${range}`;
+    els.today.disabled = state.monday === mondayOf(state.today);
+  }
+
+  function renderBanner() {
+    els.banner.replaceChildren();
+    if (state.status !== 'error') return;
+    const { message, hint } = state.error;
+    els.banner.append(
+      h('div', { class: 'banner k-bad', role: 'alert' },
+        h('div', {}, h('strong', { text: message }), hint && h('p', { text: hint })),
+        h('button', { class: 'btn', type: 'button', id: 'retry', text: 'Retry' })),
+    );
+  }
+
+  function skeletons() {
+    return {
+      verdict: h('div', { class: 'skel lg' }),
+      progress: h('div', { class: 'panel' }, h('div', { class: 'skel', style: { width: '40%', 'margin-bottom': '12px' } }), h('div', { class: 'skel' })),
+      cards: [0, 1, 2, 3].map(() => h('div', { class: 'skel card-s' })),
+      days: [0, 1, 2, 3, 4].map(() => h('li', { class: 'skel row' })),
+      issues: h('div', { class: 'skel row' }),
+    };
+  }
+
+  function renderVerdict(sum) {
+    els.verdict.replaceChildren(
+      h('p', { class: `verdict k-${sum.kind}` },
+        h('span', { class: 'verdict-icon', 'aria-hidden': 'true', text: { ok: '✓', warn: '!', bad: '✕', info: '●', neutral: '○' }[sum.kind] }),
+        h('span', { class: 'verdict-text', text: sum.headline })),
+    );
+  }
+
+  function renderProgress(sum) {
+    const scale = Math.max(WEEK_TARGET, sum.logged);
+    const track = h('div', {
+      class: 'pbar-track', role: 'progressbar', 'aria-label': 'Hours logged this week',
+      'aria-valuemin': 0, 'aria-valuemax': WEEK_TARGET, 'aria-valuenow': Math.min(sum.logged, WEEK_TARGET),
+      'aria-valuetext': `${formatDuration(sum.logged)} of ${formatDuration(WEEK_TARGET)}`,
+    }, h('div', { class: 'pbar-fill', style: { width: `${pct(sum.logged, scale)}%` } }));
+    if (sum.expected > 0) {
+      track.append(h('div', { class: 'marker', title: `Expected so far: ${formatDuration(sum.expected)}`, style: { left: `${pct(sum.expected, scale)}%` } }));
+    }
+    els.progress.replaceChildren(
+      h('div', { class: `panel k-${sum.kind}` },
+        h('div', { class: 'pbar-head' },
+          h('span', { class: 'pbar-label', text: `${formatDuration(sum.logged)} / ${formatDuration(WEEK_TARGET)}` }),
+          sum.expected > 0 && h('span', { class: 'legend' }, h('i', { 'aria-hidden': 'true' }), `Expected so far: ${formatDuration(sum.expected)}`)),
+        track),
+    );
+  }
+
+  function renderCards(sum) {
+    const expectedNote = { future: 'week not started', past: 'full week', current: 'weekdays before today' }[sum.phase];
+    const diffKind = sum.phase === 'future' ? 'neutral' : sum.kind === 'info' ? 'neutral' : sum.diff >= 0 ? 'ok' : sum.kind;
+    const diffNote = sum.phase === 'future' ? 'nothing expected yet' : sum.diff > 0 ? 'ahead' : sum.diff < 0 ? 'behind' : 'on target';
+    const card = (label, value, note, kind) =>
+      h('div', { class: `card${kind ? ` k-${kind}` : ''}` }, h('dt', { text: label }), h('dd', { class: 'v', text: value }), h('dd', { class: 's', text: note }));
+    els.cards.replaceChildren(
+      card('Total logged', formatDuration(sum.logged), `of ${formatDuration(WEEK_TARGET)} target`),
+      card('Expected so far', formatDuration(sum.expected), expectedNote),
+      card('Difference', formatSigned(sum.diff), diffNote, diffKind),
+      card('Average per logged weekday', sum.avg == null ? '—' : formatDuration(sum.avg), sum.avgDays ? `across ${sum.avgDays} weekday${sum.avgDays > 1 ? 's' : ''}` : 'no weekdays logged'),
+    );
+  }
+
+  function renderNotice(sum) {
+    els.notice.replaceChildren();
+    if (sum.logged !== 0) return;
+    const [title, text] = sum.phase === 'future'
+      ? ['Nothing here yet', 'This week has not started. Time you log in Jira will show up here.']
+      : sum.phase === 'current'
+        ? ['Nothing logged yet this week', 'Log some work in Jira and refresh to see it here.']
+        : ['Nothing was logged this week', 'No worklogs found for these days. Try another week.'];
+    els.notice.append(h('div', { class: 'notice' }, h('strong', { text: title }), text));
+  }
+
+  function renderEntries(day, base) {
+    if (!day.entries.length) return h('p', { class: 'empty-entries', text: 'Nothing logged.' });
+    return h('ul', { class: 'entries' }, day.entries.map((e) =>
+      h('li', {},
+        h('div', { class: 'e-head' },
+          issueLink(base, e.issueKey, 'e-key'),
+          h('span', { class: 'e-sum', text: e.summary }),
+          h('span', { class: 'e-time', text: formatDuration(e.seconds) })),
+        e.comment != null && e.comment !== '' && h('p', { class: 'e-comment', text: e.comment }))));
+  }
+
+  function renderDays(data) {
+    const scale = Math.max(DAY_TARGET, ...data.days.map((d) => d.totalSeconds));
+    const base = safeBase(data.jiraBaseUrl);
+    const items = [];
+    for (const day of data.days) {
+      const st = dayStatus(day, state.today);
+      if (st.key === 'hidden') continue;
+      const open = state.expanded.has(day.date);
+      const panelId = `entries-${day.date}`;
+      const delta = dayDelta(day, st);
+      const deltaKind = day.totalSeconds > DAY_TARGET ? 'ok' : st.key === 'progress' ? 'info' : st.kind;
+      const track = h('div', { class: 'track' }, h('div', { class: 'fill', style: { width: `${pct(day.totalSeconds, scale)}%` } }));
+      if (!isWeekend(day.date)) track.append(h('div', { class: 'marker', style: { left: `${pct(DAY_TARGET, scale)}%` } }));
+      items.push(
+        h('li', { class: `day${day.date === state.today ? ' today' : ''}` },
+          h('button', { class: `day-btn k-${st.kind}`, type: 'button', 'aria-expanded': String(open),'aria-controls': panelId, 'data-date': day.date },
+            h('span', { class: 'd-name' },
+              h('span', { class: 'chev', 'aria-hidden': 'true', text: '▸' }),
+              h('span', {}, day.weekday, ' ', h('span', { class: 'date', text: formatShortDate(day.date) })),
+              day.date === state.today && h('span', { class: 'pill', text: 'Today' })),
+            h('span', { class: 'd-bar', 'aria-hidden': 'true' }, track),
+            h('span', { class: 'd-hours', text: formatDuration(day.totalSeconds) }),
+            h('span', { class: 'd-status' }, h('span', { class: 'badge' }, h('span', { 'aria-hidden': 'true', text: st.icon }), st.label)),
+            h('span', { class: `d-delta k-${deltaKind}`, text: delta })),
+          h('div', { class: 'entries-box', id: panelId, hidden: !open }, open && renderEntries(day, base))));
+    }
+    els.days.replaceChildren(...items);
+    els.legend.classList.remove('hidden');
+  }
+
+  function renderIssues(data) {
+    const base = safeBase(data.jiraBaseUrl);
+    const total = data.weekTotalSeconds;
+    if (!data.issues.length) {
+      els.issues.replaceChildren(h('p', { class: 'panel', text: 'No issues with time this week.' }));
+      return;
+    }
+    const rows = data.issues.map((i) => {
+      const p = pct(i.seconds, total);
+      return h('tr', {},
+        h('td', {}, issueLink(base, i.issueKey, 'e-key')),
+        h('td', { class: 'sum', text: i.summary }),
+        h('td', { class: 'num', text: formatDuration(i.seconds) }),
+        h('td', { class: 'num' }, h('div', { class: 'share' },
+          h('span', { class: 'mini', 'aria-hidden': 'true' }, h('span', { style: { width: `${p}%` } })),
+          h('b', { text: p > 0 && p < 1 ? '<1%' : `${Math.round(p)}%` }))));
+    });
+    els.issues.replaceChildren(
+      h('div', { class: 'panel flush table-scroll' },
+        h('table', {},
+          h('thead', {}, h('tr', {},
+            h('th', { scope: 'col', text: 'Issue' }), h('th', { scope: 'col', text: 'Summary' }),
+            h('th', { scope: 'col', class: 'num', text: 'Time' }), h('th', { scope: 'col', class: 'num', text: 'Share of week' }))),
+          h('tbody', {}, rows),
+          h('tfoot', {}, h('tr', {},
+            h('td', { text: 'Total' }), h('td'),
+            h('td', { class: 'num', text: formatDuration(total) }), h('td', { class: 'num', text: '100%' }))))),
+    );
+  }
+
+  function render() {
+    renderHeader();
+    els.app.setAttribute('aria-busy', String(state.status === 'loading'));
+    els.app.classList.toggle('animate', state.animate);
+    renderBanner();
+
+    if (state.status === 'ok') {
+      const sum = weekSummary(state.data, state.today);
+      renderVerdict(sum);
+      renderProgress(sum);
+      renderCards(sum);
+      renderNotice(sum);
+      renderDays(state.data);
+      renderIssues(state.data);
+      els.daysSection.classList.remove('hidden');
+      els.issuesSection.classList.remove('hidden');
+      return;
+    }
+
+    els.verdict.replaceChildren();
+    els.progress.replaceChildren();
+    els.cards.replaceChildren();
+    els.notice.replaceChildren();
+    els.days.replaceChildren();
+    els.legend.classList.add('hidden');
+    els.issues.replaceChildren();
+    const hide = state.status === 'error';
+    els.daysSection.classList.toggle('hidden', hide);
+    els.issuesSection.classList.toggle('hidden', hide);
+    if (state.status === 'loading') {
+      const sk = skeletons();
+      els.verdict.append(sk.verdict);
+      els.progress.append(sk.progress);
+      els.cards.append(...sk.cards);
+      els.days.append(...sk.days);
+      els.issues.append(sk.issues);
+    }
+  }
+
+  // ---------- Data loading ----------
+  class ApiError extends Error {
+    constructor(message, hint) { super(message); this.hint = hint; }
+  }
+
+  function hintFor(status) {
+    if (status === 401) return 'Your Jira token is invalid or expired — update config.php.';
+    if (status === 502 || status === 504) return 'Jira is unreachable. Check your network or VPN and try again.';
+    if (status === 500) return 'The server is misconfigured — check config.php and the PHP error log.';
+    return '';
+  }
+
+  async function fetchWeek(monday, signal) {
+    let res;
+    try {
+      res = await fetch(`api.php?start=${encodeURIComponent(monday)}`, { signal, headers: { Accept: 'application/json' } });
+    } catch (err) {
+      if (err && err.name === 'AbortError') throw err;
+      throw new ApiError('Cannot reach the local server.', 'Is it running? Start it with: php -S 127.0.0.1:3000 -t public');
+    }
+    let body = null;
+    try { body = JSON.parse(await res.text()); } catch (err) {
+      if (err && err.name === 'AbortError') throw err;
+    }
+    if (!res.ok) {
+      const msg = body && typeof body.error === 'string' && body.error ? body.error : `Request failed (HTTP ${res.status}).`;
+      throw new ApiError(msg, hintFor(res.status));
+    }
+    const valid = body && typeof body === 'object' && body.weekStart === monday && Array.isArray(body.days) && body.days.length === 7
+      && body.days.every((d) => d && Array.isArray(d.entries)) && Array.isArray(body.issues) && Number.isFinite(body.weekTotalSeconds);
+    if (!valid) throw new ApiError('The server returned an unexpected response.', 'Is api.php being served by PHP? Start it with: php -S 127.0.0.1:3000 -t public');
+    return body;
+  }
+
+  async function load() {
+    if (state.controller) state.controller.abort();
+    const ctrl = new AbortController();
+    state.controller = ctrl;
+    state.today = todayInKyiv();
+    Object.assign(state, { status: 'loading', data: null, error: null, animate: true });
+    render();
+    try {
+      const data = await fetchWeek(state.monday, ctrl.signal);
+      if (state.controller !== ctrl) return;
+      Object.assign(state, { status: 'ok', data });
+    } catch (err) {
+      if (state.controller !== ctrl || (err && err.name === 'AbortError')) return;
+      Object.assign(state, { status: 'error', error: { message: err.message || 'Something went wrong.', hint: err.hint || '' } });
+    }
+    render();
+    state.animate = false;
+  }
+
+  // ---------- Navigation ----------
+  function setWeek(monday) {
+    state.monday = monday;
+    state.expanded.clear();
+    try { history.replaceState(null, '', `?start=${monday}`); } catch { /* ignore */ }
+    load();
+  }
+
+  const shiftWeek = (n) => setWeek(addDays(state.monday, 7 * n));
+
+  els.prev.addEventListener('click', () => shiftWeek(-1));
+  els.next.addEventListener('click', () => shiftWeek(1));
+  els.today.addEventListener('click', () => setWeek(mondayOf(todayInKyiv())));
+  els.banner.addEventListener('click', (e) => { if (e.target.closest('#retry')) load(); });
+
+  els.days.addEventListener('click', (e) => {
+    const btn = e.target.closest('.day-btn');
+    if (!btn || state.status !== 'ok') return;
+    const date = btn.dataset.date;
+    if (state.expanded.has(date)) state.expanded.delete(date); else state.expanded.add(date);
+    state.animate = false;
+    render();
+    const again = els.days.querySelector(`.day-btn[data-date="${date}"]`);
+    if (again) again.focus();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.defaultPrevented) return;
+    if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
+    if (e.key === 'ArrowLeft') { e.preventDefault(); shiftWeek(-1); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); shiftWeek(1); }
+  });
+
+  // Keep "today" correct if the tab stays open past midnight (Kyiv time).
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && state.today && todayInKyiv() !== state.today) load();
+  });
+
+  // ---------- Init ----------
+  const requested = new URLSearchParams(location.search).get('start');
+  state.today = todayInKyiv();
+  state.monday = mondayOf(isValidYmd(requested) ? requested : state.today);
+  setWeek(state.monday);
+})();
+</script>
+</body>
+</html>
