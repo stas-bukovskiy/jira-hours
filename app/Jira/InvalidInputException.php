@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace JiraHours;
+namespace App\Jira;
 
 final class InvalidInputException extends \InvalidArgumentException
 {
